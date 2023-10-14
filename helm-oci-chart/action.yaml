@@ -74,7 +74,9 @@ runs:
       id: helm-push
       run: |
         CHART_FILE=$(find ./chart-build -name "*.tgz" -print -quit)
-        helm push $CHART_FILE oci://${{ inputs.registry }}/${{ inputs.repository }} > digest 2>&1
+        helm push $CHART_FILE oci://${{ inputs.registry }}/${{ inputs.repository }} > digest
+        echo "FILE"
+        cat digest
         DIGEST=$(sed -n '/Digest:/s/Digest: //p' digest)
         echo "image=${{ inputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}" >> $GITHUB_OUTPUT
         echo "digest=$DIGEST" >> $GITHUB_OUTPUT
