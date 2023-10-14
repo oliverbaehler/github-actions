@@ -7,7 +7,7 @@ inputs:
   repository:
     required: true
     description: Chart repository name
-  app_version:
+  app-version:
     description: "Chart Application Version"
     required: false
   version:
@@ -19,26 +19,20 @@ inputs:
   registry:
     required: true
     description: OCI registry
-  registry_username:
+  registry-username:
     required: true
     description: OCI registry username
-  registry_password:
+  registry-password:
     required: true
     description: OCI registry password
-  update_dependencies:
+  update-dependencies:
     required: false
     default: 'false'
     description: Update chart dependencies before packaging (Default 'false')
-  gpg_sign:
+  cosign-enabled:
     required: false
     default: 'false'
-    description: Sign chart package with GPG
-  gpg_key:
-    required: false
-    description: GPG Key to sign chart
-  gpg_keyring:
-    required: false
-    description: GPG Keyring containting GPG Key
+    description: Sign chart package with Cosign
 outputs:
   digest:
     value: ${{ steps.helm-push.outputs.digest }}
@@ -52,12 +46,17 @@ runs:
 
     - name: Helm | Login
       shell: bash
-      run: echo ${{ inputs.registry_password }} | helm registry login -u ${{ inputs.registry_username }} --password-stdin ${{ inputs.registry }}
+      run: echo ${{ inputs.registry-password }} | helm registry login -u ${{ inputs.registry-username }} --password-stdin ${{ inputs.registry }}
       env:
         HELM_EXPERIMENTAL_OCI: '1'
+
+    - name: Cosign | Login
+      if: inputs.cosign-enabled == 'true'
+      shell: bash
+      run: cosign login --username ${{ inputs.registry-username }} --password ${{ inputs.registry-password }} ${{ inputs.registry }}
     
     - name: Helm | Dependency
-      if: inputs.update_dependencies == 'true'
+      if: inputs.update-dependencies == 'true'
       shell: bash
       run: helm dependency update ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }}
       env:
@@ -65,7 +64,7 @@ runs:
 
     - name: Helm | Package
       shell: bash
-      run: helm package --destination ./chart-build/ ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && format('--version={0}', inputs.version) || '' }} ${{ inputs.app_version != '' && format('--app-version={0}', inputs.app_version) || '' }}
+      run: helm package --destination ./chart-build/ ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && format('--version={0}', inputs.version) || '' }} ${{ inputs.app-version != '' && format('--app-version={0}', inputs.app-version) || '' }}
       env:
         HELM_EXPERIMENTAL_OCI: '1'
 
@@ -74,14 +73,17 @@ runs:
       id: helm-push
       run: |
         CHART_FILE=$(find ./chart-build -name "*.tgz" -print -quit)
-        helm push $CHART_FILE oci://${{ inputs.registry }}/${{ inputs.repository }} > digest
-        echo "FILE"
-        cat digest
+        helm push $CHART_FILE oci://${{ inputs.registry }}/${{ inputs.repository }} |& tee digest
         DIGEST=$(sed -n '/Digest:/s/Digest: //p' digest)
         echo "image=${{ inputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}" >> $GITHUB_OUTPUT
         echo "digest=$DIGEST" >> $GITHUB_OUTPUT
       env:
         HELM_EXPERIMENTAL_OCI: '1'
+
+    - name: Cosign | Sign 
+      if: inputs.cosign-enabled == 'true'
+      shell: bash
+      run: cosign sign --yes ${{ steps.helm-push.outputs.image }}@${{ steps.helm-push.outputs.digest }}
 
     - name: Helm | Logout
       shell: bash
