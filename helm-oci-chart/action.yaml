@@ -65,7 +65,7 @@ runs:
 
     - name: Helm | Package
       shell: bash
-      run: helm package --destination ./.chart-build/ ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && format('--version={0}', inputs.version) || '' }} ${{ inputs.app_version != '' && format('--app-version={0}', inputs.app_version) || '' }}
+      run: helm package --destination ./chart-build/ ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && format('--version={0}', inputs.version) || '' }} ${{ inputs.app_version != '' && format('--app-version={0}', inputs.app_version) || '' }}
       env:
         HELM_EXPERIMENTAL_OCI: '1'
 
@@ -73,7 +73,7 @@ runs:
       shell: bash
       id: helm-push
       run: |
-        CHART_FILE=$(find ./.chart-build -name "${{ inputs.name }}-*.tgz" -print -quit)
+        CHART_FILE=$(find ./chart-build -name "*.tgz" -print -quit)
         helm push $CHART_FILE oci://${{ inputs.registry }}/${{ inputs.repository }} > digest 2>&1
         DIGEST=$(sed -n '/Digest:/s/Digest: //p' digest)
         echo "image=${{ inputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}" >> $GITHUB_OUTPUT
