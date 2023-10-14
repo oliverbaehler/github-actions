@@ -29,6 +29,16 @@ inputs:
     required: false
     default: 'false'
     description: Update chart dependencies before packaging (Default 'false')
+  gpg_sign:
+    required: false
+    default: 'false'
+    description: Sign chart package with GPG
+  gpg_key:
+    required: false
+    description: GPG Key to sign chart
+  gpg_keyring:
+    required: false
+    description: GPG Keyring containting GPG Key
 outputs:
   digest:
     value: ${{ steps.helm-push.outputs.digest }}
@@ -55,7 +65,7 @@ runs:
 
     - name: Helm | Package
       shell: bash
-      run: helm package ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && format('--version={0}', inputs.version) || '' }} ${{ inputs.app_version != '' && format('--app-version={0}', inputs.app_version) || '' }}
+      run: helm package --destination ./.chart-build/ ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && format('--version={0}', inputs.version) || '' }} ${{ inputs.app_version != '' && format('--app-version={0}', inputs.app_version) || '' }}
       env:
         HELM_EXPERIMENTAL_OCI: '1'
 
@@ -63,7 +73,8 @@ runs:
       shell: bash
       id: helm-push
       run: |
-        helm push ${{ inputs.name }}-${{ inputs.version }}.tgz oci://${{ inputs.registry }}/${{ inputs.repository }} > digest 2>&1
+        CHART_FILE=$(find ./.chart-build -name "${{ inputs.name }}-*.tgz" -print -quit)
+        helm push $CHART_FILE oci://${{ inputs.registry }}/${{ inputs.repository }} > digest 2>&1
         DIGEST=$(sed -n '/Digest:/s/Digest: //p' digest)
         echo "image=${{ inputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}" >> $GITHUB_OUTPUT
         echo "digest=$DIGEST" >> $GITHUB_OUTPUT
