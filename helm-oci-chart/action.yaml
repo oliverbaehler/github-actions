@@ -55,7 +55,7 @@ runs:
 
     - name: Helm | Package
       shell: bash
-      run: helm package ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && '--version=' + inputs.version || '' }} ${{ inputs.app_version != '' && '--app-version=' + inputs.app_version || '' }}
+      run: helm package ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && format('--version={0}', inputs.version) || '' }} ${{ inputs.app_version != '' && format('--app-version={0}', inputs.app_version) || '' }}
       env:
         HELM_EXPERIMENTAL_OCI: '1'
 
