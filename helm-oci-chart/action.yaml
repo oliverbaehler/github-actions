@@ -1,0 +1,77 @@
+name: Helm OCI Chart Releaser
+description: Push Helm charts to OCI-based (Docker) registries
+inputs:
+  name:
+    required: true
+    description: Chart name
+  repository:
+    required: true
+    description: Chart repository name
+  app_version:
+    description: "Chart Application Version"
+    required: false
+  version:
+    required: false
+    description: Chart version
+  path:
+    required: false
+    description: Chart path (Default 'charts/{name}')
+  registry:
+    required: true
+    description: OCI registry
+  registry_username:
+    required: true
+    description: OCI registry username
+  registry_password:
+    required: true
+    description: OCI registry password
+  update_dependencies:
+    required: false
+    default: 'false'
+    description: Update chart dependencies before packaging (Default 'false')
+outputs:
+  digest:
+    value: ${{ steps.helm-push.outputs.digest }}
+    description: "Chart digest"
+  image:
+    value: ${{ steps.helm-push.outputs.image }}
+    description: Chart image (Default '{registry}/{repository}/{image}:{version}')
+runs:
+  using: composite
+  steps:
+
+    - name: Helm | Login
+      shell: bash
+      run: echo ${{ inputs.registry_password }} | helm registry login -u ${{ inputs.registry_username }} --password-stdin ${{ inputs.registry }}
+      env:
+        HELM_EXPERIMENTAL_OCI: '1'
+    
+    - name: Helm | Dependency
+      if: inputs.update_dependencies == 'true'
+      shell: bash
+      run: helm dependency update ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }}
+      env:
+        HELM_EXPERIMENTAL_OCI: '1'
+
+    - name: Helm | Package
+      shell: bash
+      run: helm package ${{ inputs.path == null && format('{0}/{1}', 'charts', inputs.name) || inputs.path }} ${{ inputs.version != '' && '--version=' + inputs.version || '' }} ${{ inputs.app_version != '' && '--app-version=' + inputs.app_version || '' }}
+      env:
+        HELM_EXPERIMENTAL_OCI: '1'
+
+    - name: Helm | Push
+      shell: bash
+      id: helm-push
+      run: |
+        helm push ${{ inputs.name }}-${{ inputs.version }}.tgz oci://${{ inputs.registry }}/${{ inputs.repository }} > digest 2>&1
+        DIGEST=$(sed -n '/Digest:/s/Digest: //p' digest)
+        echo "image=${{ inputs.registry }}/${{ inputs.repository }}/${{ inputs.name }}:${{ inputs.version }}" >> $GITHUB_OUTPUT
+        echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+      env:
+        HELM_EXPERIMENTAL_OCI: '1'
+
+    - name: Helm | Logout
+      shell: bash
+      run: helm registry logout ${{ inputs.registry }}
+      env:
+        HELM_EXPERIMENTAL_OCI: '1'
