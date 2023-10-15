@@ -85,6 +85,7 @@ runs:
         HELM_EXPERIMENTAL_OCI: '1'
 
     - name: Cosign | Sign
+      shell: bash
       if: inputs.sign-image == 'true'
       env:
         COSIGN_REPOSITORY: ${{ inputs.signature-repository }}
