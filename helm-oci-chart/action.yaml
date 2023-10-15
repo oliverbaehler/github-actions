@@ -29,10 +29,14 @@ inputs:
     required: false
     default: 'false'
     description: Update chart dependencies before packaging (Default 'false')
-  cosign-enabled:
+  sign-image:
     required: false
     default: 'false'
     description: Sign chart package with Cosign
+  signature-repository:
+    required: true
+    description: signature repository
+
 outputs:
   digest:
     value: ${{ steps.helm-push.outputs.digest }}
@@ -51,7 +55,7 @@ runs:
         HELM_EXPERIMENTAL_OCI: '1'
 
     - name: Cosign | Login
-      if: inputs.cosign-enabled == 'true'
+      if: inputs.sign-image == 'true'
       shell: bash
       run: cosign login --username ${{ inputs.registry-username }} --password ${{ inputs.registry-password }} ${{ inputs.registry }}
     
@@ -80,10 +84,17 @@ runs:
       env:
         HELM_EXPERIMENTAL_OCI: '1'
 
-    - name: Cosign | Sign 
-      if: inputs.cosign-enabled == 'true'
-      shell: bash
-      run: cosign sign --yes ${{ steps.helm-push.outputs.image }}@${{ steps.helm-push.outputs.digest }}
+    - name: Cosign | Sign
+      if: inputs.sign-image == 'true'
+      env:
+        COSIGN_REPOSITORY: ${{ inputs.signature-repository }}
+      run: |
+        set -e
+        cosign sign --yes \
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ${{ steps.helm-push.outputs.image }}@${{ steps.helm-push.outputs.digest }}
 
     - name: Helm | Logout
       shell: bash
