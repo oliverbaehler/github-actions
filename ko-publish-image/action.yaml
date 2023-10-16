@@ -54,7 +54,10 @@ runs:
         COSIGN_REPOSITORY: ${{ inputs.sbom-repository }}
       run: |
         set -e
-        echo "digest=$(VERSION=${{ inputs.version }} make ${{ inputs.makefile-target }})" >> $GITHUB_OUTPUT
+        echo "FAILING a1"
+        echo "digest=$(VERSION=${{ inputs.version }} make ${{ inputs.makefile-target }})"
+        echo "FAILING a2"
+        echo "digest=$digest >> $GITHUB_OUTPUT"
     - uses: CycloneDX/gh-gomod-generate-sbom@d4aee0cf5133055dbd98899978246c10c18c440f # v1.1.0
       with:
         version: v1
@@ -69,20 +72,25 @@ runs:
         COSIGN_REPOSITORY: ${{ inputs.signature-repository }}
       run: |
         set -e
+        echo "FAILING 00"
         cosign sign --yes \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
           ${{ steps.ko-publish.outputs.digest }}
+        echo "FAILING 0"
     - shell: bash
       env:
         COSIGN_REPOSITORY: ${{ inputs.sbom-repository }}
       run: |
+        echo "FAILING 1"
         cosign attach sbom --sbom ./${{ inputs.sbom-name }}-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}
     - shell: bash
       id: digest
       run: |
         echo "The image generated is: ${{ steps.ko-publish.outputs.digest }}"
+        echo "FAILING 2"
         DIGEST=$(echo ${{ steps.ko-publish.outputs.digest }} | cut -d '@' -f2)
+        echo "FAILING 3"
         echo "Digest from image is: $DIGEST"
         echo "digest=$DIGEST" >> $GITHUB_OUTPUT
