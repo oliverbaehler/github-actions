@@ -21,6 +21,10 @@ inputs:
   version:
     required: true
     description: published image version
+  version-required:
+    description: 'Flag to require version check'
+    required: false
+    default: 'true'
   sign-image:
     required: true
     description: sign image
@@ -45,6 +49,15 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Check if version is set
+      if: inputs.version-required == 'true'
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.version }}" ]; then
+          echo "Error: Version is not set."
+          exit 1
+        fi
+        echo "Version is set to ${{ inputs.version }}."
     - shell: bash
       id: ko-publish
       env:
